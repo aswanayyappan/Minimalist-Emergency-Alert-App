@@ -152,7 +152,7 @@ export function Dashboard() {
               "bg-[#888] animate-pulse"
             )} />
             <span className="text-[11px] font-semibold uppercase tracking-wider text-[#888]">
-              {isOnline === true ? "Network Online" : isOnline === false ? "Network Offline" : "Connecting..."}
+              {isOnline === true ? "Network Online" : isOnline === false ? "Network Offline" : "Waking up server..."}
             </span>
           </motion.div>
         </header>
