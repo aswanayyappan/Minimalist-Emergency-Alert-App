@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "motion/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ShieldAlert, Ambulance, Flame, CheckCircle2, AlertTriangle, MapPin, Activity } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -9,6 +9,24 @@ type ServiceType = "police" | "ambulance" | "fire" | null;
 export function Dashboard() {
   const [status, setStatus] = useState<Status>("ready");
   const [activeService, setActiveService] = useState<ServiceType>(null);
+  const [isOnline, setIsOnline] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/alert";
+        const STATUS_URL = API_URL.replace("/alert", "/status");
+        const res = await fetch(STATUS_URL);
+        if (res.ok) setIsOnline(true);
+        else setIsOnline(false);
+      } catch (e) {
+        setIsOnline(false);
+      }
+    };
+    checkStatus();
+    const interval = setInterval(checkStatus, 30000); // Check every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
 
   const handleAlert = async (service: ServiceType) => {
     if (status !== "ready" && status !== "sent" && status !== "error") return;
@@ -117,10 +135,26 @@ export function Dashboard() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-            className="text-[15px] md:text-[19px] text-[#888888] font-normal"
+            className="text-[15px] md:text-[19px] text-[#888888] font-normal mb-6"
           >
             Tap to request immediate assistance
           </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/[0.05]"
+          >
+            <div className={clsx(
+              "w-2 h-2 rounded-full",
+              isOnline === true ? "bg-[#34C759] shadow-[0_0_8px_#34C759]" : 
+              isOnline === false ? "bg-[#FF3B30] shadow-[0_0_8px_#FF3B30]" : 
+              "bg-[#888] animate-pulse"
+            )} />
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#888]">
+              {isOnline === true ? "Network Online" : isOnline === false ? "Network Offline" : "Connecting..."}
+            </span>
+          </motion.div>
         </header>
 
         {/* Action Buttons */}

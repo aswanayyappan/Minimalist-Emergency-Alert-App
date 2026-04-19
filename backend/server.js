@@ -10,6 +10,9 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Health Check Endpoint
+app.get('/status', (req, res) => res.json({ status: 'online' }));
+
 // Basic Memory-based Rate Limiting (Prevent requests within 3 seconds)
 const lastRequestTimes = new Map();
 const RATE_LIMIT_MS = 3000;
