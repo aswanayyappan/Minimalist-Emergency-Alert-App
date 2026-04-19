@@ -67,15 +67,18 @@ export function Dashboard() {
 
         try {
           const API_URL = `${BACKEND_URL}/alert`;
+          const token = localStorage.getItem('token');
           const response = await fetch(API_URL, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`
+            },
             body: JSON.stringify({
               type: service?.toUpperCase(),
               lat: latitude,
               lon: longitude
-            }),
-            credentials: 'include'
+            })
           });
 
           if (response.ok) {

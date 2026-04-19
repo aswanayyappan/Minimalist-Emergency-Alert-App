@@ -3,8 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const { OAuth2Client } = require('google-auth-library');
-const session = require('express-session');
-const cookieParser = require('cookie-parser');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,19 +21,6 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
-app.use(cookieParser());
-
-// 2. Session Management (Pure Express Session)
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'emergency_alert_secret_123',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { 
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    maxAge: 1000 * 60 * 60 * 24 // 24 hours
-  }
-}));
 
 
 // 3. Auth Routes (Pure Google OAuth)
@@ -59,15 +45,20 @@ app.get('/auth/google/callback', async (req, res) => {
     });
     const payload = ticket.getPayload();
 
-    // Store Google Profile in session
-    req.session.user = {
+    const userProfile = {
       id: payload.sub,
       name: payload.name,
       email: payload.email,
       picture: payload.picture
     };
 
-    res.redirect(`${process.env.FRONTEND_URL || "http://localhost:5173"}/dashboard`);
+    const token = jwt.sign(
+      userProfile,
+      process.env.SESSION_SECRET || 'emergency_alert_secret_123',
+      { expiresIn: '24h' }
+    );
+
+    res.redirect(`${process.env.FRONTEND_URL || "http://localhost:5173"}/dashboard?token=${token}`);
   } catch (error) {
     console.error('[AUTH ERROR] Details:', error.response?.data || error.message);
     res.redirect(`${process.env.FRONTEND_URL || "http://localhost:5173"}/signup?error=auth_failed`);
@@ -75,16 +66,22 @@ app.get('/auth/google/callback', async (req, res) => {
 });
 
 app.get('/auth/status', (req, res) => {
-  if (req.session.user) {
-    res.json({ authenticated: true, user: req.session.user });
-  } else {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.json({ authenticated: false });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const user = jwt.verify(token, process.env.SESSION_SECRET || 'emergency_alert_secret_123');
+    res.json({ authenticated: true, user });
+  } catch (err) {
     res.json({ authenticated: false });
   }
 });
 
 app.get('/auth/logout', (req, res) => {
-  req.session.destroy();
-  res.clearCookie('connect.sid');
+  // Stateless JWT: logout is handled on the client side by discarding the token
   res.json({ status: 'logged out' });
 });
 
@@ -93,13 +90,21 @@ app.get('/status', (req, res) => res.json({ status: 'online' }));
 
 // 4. Secured Alert Route
 app.post('/alert', async (req, res) => {
-  if (!req.session.user) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Unauthorized: Please login first' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  let user;
+  try {
+    user = jwt.verify(token, process.env.SESSION_SECRET || 'emergency_alert_secret_123');
+  } catch (err) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid token' });
   }
 
   try {
     const { type, lat, lon } = req.body;
-    const user = req.session.user;
 
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
     const chatId = process.env.TELEGRAM_CHAT_ID;
