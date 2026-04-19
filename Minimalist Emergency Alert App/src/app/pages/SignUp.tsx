@@ -1,20 +1,10 @@
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
-import { ArrowLeft, ArrowRight, Chrome } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, Chrome } from "lucide-react";
 import { signInWithGoogle } from "../firebase";
 
 export function SignUp() {
   const navigate = useNavigate();
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-
-  const handleContinue = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (name && phone) {
-      navigate("/dashboard");
-    }
-  };
 
   const handleGoogleLogin = async () => {
     try {
@@ -53,68 +43,24 @@ export function SignUp() {
           {/* Subtle top highlight */}
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
           
-          <h2 className="mb-8 md:mb-12 text-[28px] md:text-[36px] font-bold tracking-[-0.03em] text-[#EAEAEA]">
-            Set Up Profile
+          <h2 className="mb-4 text-[28px] md:text-[36px] font-bold tracking-[-0.03em] text-[#EAEAEA] text-center">
+            Sign In
           </h2>
-
-          <form onSubmit={handleContinue} className="flex flex-col gap-6 md:gap-8">
-            <div className="flex flex-col gap-3 md:gap-4">
-              <label className="text-[11px] md:text-[12px] font-medium uppercase tracking-[0.15em] text-[#888888]">
-                Full Name
-              </label>
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="John Doe"
-                className="w-full rounded-2xl md:rounded-[20px] border border-white/[0.04] bg-[#0A0A0A]/50 px-6 py-5 md:py-6 text-[17px] md:text-[19px] text-[#EAEAEA] placeholder-[#555555] outline-none transition-all duration-300 focus:border-white/[0.12] focus:bg-[#0A0A0A] focus:shadow-[0_0_24px_rgba(255,255,255,0.02)]"
-              />
-            </div>
-
-            <div className="flex flex-col gap-3 md:gap-4">
-              <label className="text-[11px] md:text-[12px] font-medium uppercase tracking-[0.15em] text-[#888888]">
-                Phone Number
-              </label>
-              <input
-                type="tel"
-                required
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+1 (555) 000-0000"
-                className="w-full rounded-2xl md:rounded-[20px] border border-white/[0.04] bg-[#0A0A0A]/50 px-6 py-5 md:py-6 text-[17px] md:text-[19px] text-[#EAEAEA] placeholder-[#555555] outline-none transition-all duration-300 focus:border-white/[0.12] focus:bg-[#0A0A0A] focus:shadow-[0_0_24px_rgba(255,255,255,0.02)]"
-              />
-            </div>
-
-            <motion.button
-              whileTap={!(!name || !phone) ? { scale: 0.96 } : undefined}
-              transition={{ type: "spring", stiffness: 400, damping: 25 }}
-              disabled={!name || !phone}
-              type="submit"
-              className="mt-8 flex w-full items-center justify-center gap-3 rounded-2xl md:rounded-[20px] bg-gradient-to-b from-[#EAEAEA] to-[#D4D4D4] px-6 py-5 md:py-6 text-[17px] md:text-[19px] font-semibold text-[#0A0A0C] shadow-[0_4px_24px_rgba(234,234,234,0.1)] transition-all duration-300 disabled:opacity-30 disabled:shadow-none hover:shadow-[0_8px_32px_rgba(234,234,234,0.15)] hover:bg-[#F5F5F5]"
-            >
-              Continue
-              <ArrowRight className="h-5 w-5 md:h-6 md:w-6" strokeWidth={2} />
-            </motion.button>
-          </form>
-
-          <div className="my-10 flex items-center gap-4">
-            <div className="h-px flex-1 bg-white/[0.05]" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#444]">Or</span>
-            <div className="h-px flex-1 bg-white/[0.05]" />
-          </div>
+          <p className="mb-12 text-center text-[#888888] text-[15px] md:text-[17px]">
+            Please sign in with Google to continue to Emergency Alert.
+          </p>
 
           <motion.button
             whileTap={{ scale: 0.96 }}
             onClick={handleGoogleLogin}
-            className="flex w-full items-center justify-center gap-3 rounded-2xl md:rounded-[20px] bg-white/[0.02] border border-white/[0.05] px-6 py-5 md:py-6 text-[17px] md:text-[19px] font-semibold text-[#EAEAEA] transition-all duration-300 hover:bg-white/[0.04] hover:border-white/[0.1] active:bg-white/[0.06]"
+            className="flex w-full items-center justify-center gap-3 rounded-2xl md:rounded-[20px] bg-white/[0.05] border border-white/[0.1] px-6 py-6 md:py-8 text-[17px] md:text-[19px] font-semibold text-[#EAEAEA] transition-all duration-300 hover:bg-white/[0.08] hover:border-white/[0.2] active:bg-white/[0.1] shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
           >
-            <Chrome className="h-5 w-5 md:h-6 md:w-6" />
+            <Chrome className="h-6 w-6 md:h-7 md:w-7" />
             Continue with Google
           </motion.button>
 
-          <p className="mt-8 md:mt-10 text-center text-[11px] md:text-[12px] font-medium uppercase tracking-[0.2em] text-[#555555]">
-            Used only for sending alerts
+          <p className="mt-12 text-center text-[11px] md:text-[12px] font-medium uppercase tracking-[0.2em] text-[#555555]">
+            Secure authentication by Firebase
           </p>
         </div>
       </motion.div>
