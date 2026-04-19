@@ -1,10 +1,9 @@
 import { motion, AnimatePresence } from "motion/react";
 import { useState, useEffect } from "react";
-import { ShieldAlert, Ambulance, Flame, CheckCircle2, AlertTriangle, MapPin, Activity, LogOut, User as UserIcon } from "lucide-react";
+import { ShieldAlert, Ambulance, Flame, CheckCircle2, AlertTriangle, MapPin, Activity, LogOut } from "lucide-react";
 import { clsx } from "clsx";
-import { auth, logout } from "../firebase";
-import { onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate } from "react-router";
+import { useAuth } from "../context/AuthContext";
 
 type Status = "ready" | "fetching" | "sending" | "sent" | "error";
 type ServiceType = "police" | "ambulance" | "fire" | null;
@@ -13,26 +12,21 @@ export function Dashboard() {
   const [status, setStatus] = useState<Status>("ready");
   const [activeService, setActiveService] = useState<ServiceType>(null);
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
-  const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
+  const { isAuthenticated, loading, logout } = useAuth();
+
+  const BACKEND_URL = import.meta.env.VITE_API_URL?.replace("/alert", "") || "http://localhost:3000";
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const handleLogout = async () => {
-    await logout();
-    navigate("/");
-  };
+    if (!loading && !isAuthenticated) {
+      navigate("/signup");
+    }
+  }, [isAuthenticated, loading, navigate]);
 
   useEffect(() => {
     const checkStatus = async () => {
       try {
-        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/alert";
-        const STATUS_URL = API_URL.replace("/alert", "/status");
+        const STATUS_URL = `${BACKEND_URL}/status`;
         const res = await fetch(STATUS_URL);
         if (res.ok) setIsOnline(true);
         else setIsOnline(false);
@@ -41,9 +35,18 @@ export function Dashboard() {
       }
     };
     checkStatus();
-    const interval = setInterval(checkStatus, 30000); // Check every 30 seconds
+    const interval = setInterval(checkStatus, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  if (loading || !isAuthenticated) return null;
+
+  const handleLogout = async () => {
+    console.log("Logout initiated");
+    await logout();
+    console.log("Logout complete, navigating...");
+    navigate("/");
+  };
 
   const handleAlert = async (service: ServiceType) => {
     if (status !== "ready" && status !== "sent" && status !== "error") return;
@@ -63,7 +66,7 @@ export function Dashboard() {
         setStatus("sending");
 
         try {
-          const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/alert";
+          const API_URL = `${BACKEND_URL}/alert`;
           const response = await fetch(API_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -72,6 +75,7 @@ export function Dashboard() {
               lat: latitude,
               lon: longitude
             }),
+            credentials: 'include'
           });
 
           if (response.ok) {
@@ -85,17 +89,12 @@ export function Dashboard() {
         }
       },
       (error) => {
-        console.error("Location error:", error);
+        console.error("GPS error:", error);
         setStatus("error");
       },
-      { enableHighAccuracy: true, timeout: 5000 }
+      { enableHighAccuracy: true }
     );
   };
-
-  const resetState = () => {
-    setStatus("ready");
-    setActiveService(null);
-  }
 
   const getStatusDisplay = () => {
     switch (status) {
@@ -109,63 +108,53 @@ export function Dashboard() {
 
   const currentStatus = getStatusDisplay();
 
-  const getGlowColor = () => {
-    if (status !== "sending") return "transparent";
-    switch (activeService) {
-      case "police": return "rgba(255, 59, 48, 0.15)";
-      case "ambulance": return "rgba(0, 122, 255, 0.15)";
-      case "fire": return "rgba(255, 149, 0, 0.15)";
-      default: return "transparent";
-    }
-  }
-
   return (
-    <div className="flex min-h-[100dvh] w-full flex-col px-6 pt-16 pb-10 md:py-24 relative overflow-hidden">
-      {/* Soft dynamic background glow */}
+    <div className="flex min-h-[100dvh] w-full flex-col px-6 pt-16 pb-10 md:py-24 relative overflow-hidden bg-[#0A0A0A]">
+      <div className="fixed top-0 right-0 p-4 md:p-8 z-[100]">
+        <button 
+          onClick={handleLogout}
+          className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.03] border border-white/[0.05] text-[#555] hover:text-[#FF3B30] hover:bg-white/[0.08] hover:border-white/[0.1] transition-all duration-300 backdrop-blur-md group pointer-events-auto"
+        >
+          <span className="text-[13px] font-medium tracking-tight">Sign Out</span>
+          <LogOut className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-0.5" strokeWidth={2} />
+        </button>
+      </div>
+
+      {/* Dynamic Background System */}
       <AnimatePresence>
-        {status === "sending" && activeService && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 1.5, ease: "easeInOut" }}
-            className="absolute inset-0 z-0 pointer-events-none"
-            style={{ 
-              background: `radial-gradient(circle at 50% 50%, ${getGlowColor()} 0%, transparent 60%)` 
-            }}
-          />
+        {activeService === "police" && status !== "ready" && (
+          <PoliceBackground key="police" />
+        )}
+        {activeService === "ambulance" && status !== "ready" && (
+          <MedicalBackground key="medical" />
+        )}
+        {activeService === "fire" && status !== "ready" && (
+          <FireBackground key="fire" />
         )}
       </AnimatePresence>
 
-      <div className="relative z-10 flex flex-col h-full w-full max-w-6xl mx-auto">
-        {/* Header */}
+      <div className="relative z-20 flex flex-col h-full w-full max-w-6xl mx-auto">
+
         <header className="mb-12 md:mb-24 flex flex-col items-center justify-center text-center relative">
-          {/* User Profile / Logout */}
-          <div className="absolute -top-12 md:-top-16 right-0 flex items-center gap-4">
-            {user && (
-              <div className="flex items-center gap-3 bg-white/[0.02] border border-white/[0.05] pl-1.5 pr-4 py-1.5 rounded-full backdrop-blur-md">
-                {user.photoURL ? (
-                  <img src={user.photoURL} alt="Profile" className="w-8 h-8 rounded-full border border-white/[0.1]" />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-white/[0.05] flex items-center justify-center">
-                    <UserIcon className="w-4 h-4 text-[#888]" />
-                  </div>
-                )}
-                <span className="text-xs font-semibold text-[#EAEAEA] hidden md:inline">{user.displayName || "User"}</span>
-                <button 
-                  onClick={handleLogout}
-                  className="ml-2 text-[#888] hover:text-[#FF3B30] transition-colors"
-                  title="Logout"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-          </div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex items-center gap-2 mb-4 px-3 py-1 rounded-full bg-white/[0.03] border border-white/[0.05]"
+          >
+            <div className={clsx(
+              "w-1.5 h-1.5 rounded-full",
+              isOnline === true ? "bg-[#34C759] shadow-[0_0_8px_#34C759]" : 
+              isOnline === false ? "bg-[#FF3B30] shadow-[0_0_8px_#FF3B30]" : 
+              "bg-[#888] animate-pulse"
+            )} />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#555]">
+              {isOnline === true ? "System Live" : isOnline === false ? "System Offline" : "Connecting..."}
+            </span>
+          </motion.div>
+
           <motion.h1 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
             className="text-[28px] md:text-[44px] font-bold tracking-[-0.03em] text-[#EAEAEA] mb-2 md:mb-4"
           >
             Emergency Alert
@@ -173,30 +162,12 @@ export function Dashboard() {
           <motion.p 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-            className="text-[15px] md:text-[19px] text-[#888888] font-normal mb-6"
+            className="text-[15px] md:text-[19px] text-[#888888] font-normal"
           >
             Tap to request immediate assistance
           </motion.p>
-
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/[0.05]"
-          >
-            <div className={clsx(
-              "w-2 h-2 rounded-full",
-              isOnline === true ? "bg-[#34C759] shadow-[0_0_8px_#34C759]" : 
-              isOnline === false ? "bg-[#FF3B30] shadow-[0_0_8px_#FF3B30]" : 
-              "bg-[#888] animate-pulse"
-            )} />
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#888]">
-              {isOnline === true ? "Network Online" : isOnline === false ? "Network Offline" : "Waking up server..."}
-            </span>
-          </motion.div>
         </header>
 
-        {/* Action Buttons */}
         <div className="flex-1 flex flex-col md:flex-row justify-center gap-6 md:gap-8 px-2 md:px-0">
           <ServiceButton
             type="police"
@@ -204,6 +175,7 @@ export function Dashboard() {
             Icon={ShieldAlert}
             isActive={activeService === "police"}
             status={status}
+            themeColor="rgb(0, 122, 255)"
             onClick={() => handleAlert("police")}
           />
           <ServiceButton
@@ -212,6 +184,7 @@ export function Dashboard() {
             Icon={Ambulance}
             isActive={activeService === "ambulance"}
             status={status}
+            themeColor="rgb(52, 199, 89)"
             onClick={() => handleAlert("ambulance")}
           />
           <ServiceButton
@@ -220,51 +193,118 @@ export function Dashboard() {
             Icon={Flame}
             isActive={activeService === "fire"}
             status={status}
+            themeColor="rgb(255, 59, 48)"
             onClick={() => handleAlert("fire")}
           />
         </div>
 
-        {/* Status Panel */}
-        <div className="mt-auto md:mt-24 pt-12 flex flex-col items-center">
-           <AnimatePresence mode="wait">
-             <motion.div 
-               key={status}
-               initial={{ opacity: 0, y: 15, scale: 0.98 }}
-               animate={
-                 status === "error" 
-                   ? { opacity: 1, y: 0, scale: 1, x: [-2, 2, -2, 2, 0] } 
-                   : { opacity: 1, y: 0, scale: 1, x: 0 }
-               }
-               exit={{ opacity: 0, y: -10, scale: 0.98 }}
-               transition={{ duration: 0.5, ease: [0.25, 1, 0.5, 1] }}
-               onClick={(status === "sent" || status === "error") ? resetState : undefined}
-               className={clsx(
-                 "mb-8 flex h-[68px] md:h-[80px] w-full max-w-[320px] md:max-w-[400px] items-center justify-center gap-4 rounded-[20px] md:rounded-[24px] backdrop-blur-2xl transition-all duration-500",
-                 (status === "sent" || status === "error") ? "cursor-pointer hover:bg-[#1A1A1A]/80" : "cursor-default",
-                 status === "sent" 
-                   ? "bg-[#141414]/90 border border-[#34C759]/20 shadow-[0_16px_40px_rgba(0,0,0,0.4)]" 
-                 : status === "error" 
-                   ? "bg-[#141414]/90 border border-[#FF3B30]/20 shadow-[0_16px_40px_rgba(0,0,0,0.4)]" 
-                 : "bg-[#121212]/80 border border-white/[0.04] shadow-[0_16px_40px_rgba(0,0,0,0.4)]"
-               )}
-             >
-                <div className="flex items-center justify-center w-6 h-6 md:w-8 md:h-8">
-                  {currentStatus.icon}
-                </div>
-                <span className={clsx("text-[15px] md:text-[17px] font-medium tracking-wide", currentStatus.color)}>
-                  {currentStatus.text}
+        <footer className="mt-16 md:mt-24 flex flex-col items-center text-center">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center gap-6"
+          >
+            <div className="flex items-center gap-4 bg-white/[0.02] border border-white/[0.05] px-6 py-4 rounded-2xl backdrop-blur-md">
+              <div className="flex items-center justify-center h-10 w-10 rounded-full bg-white/[0.03] border border-white/[0.05]">
+                {currentStatus?.icon}
+              </div>
+              <div className="flex flex-col items-start">
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#555555]">Status</span>
+                <span className={clsx("text-[17px] font-semibold tracking-tight", currentStatus?.color)}>
+                  {currentStatus?.text}
                 </span>
-             </motion.div>
-           </AnimatePresence>
-
-          <p className="text-center text-[10px] md:text-[12px] font-medium uppercase tracking-[0.2em] text-[#555555]">
-            Secure Emergency Network Active
-          </p>
-        </div>
+              </div>
+            </div>
+          </motion.div>
+        </footer>
       </div>
     </div>
   );
 }
+
+// --- Background Components ---
+
+const PoliceBackground = () => (
+  <motion.div 
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    className="absolute inset-0 z-0 pointer-events-none overflow-hidden"
+  >
+    <motion.div 
+      animate={{ 
+        backgroundColor: ["rgba(0,0,255,0.05)", "rgba(255,0,0,0.05)", "rgba(0,0,255,0.05)"] 
+      }}
+      transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+      className="absolute inset-0"
+    />
+    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(0,122,255,0.1)_0%,transparent_70%)]" />
+  </motion.div>
+);
+
+const MedicalBackground = () => (
+  <motion.div 
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    className="absolute inset-0 z-0 pointer-events-none"
+  >
+    <motion.div 
+      animate={{ 
+        opacity: [0.2, 0.4, 0.2]
+      }}
+      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+      className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(52,199,89,0.15)_0%,transparent_70%)]"
+    />
+    <svg className="absolute bottom-0 left-0 w-full h-32 text-green-500/10" viewBox="0 0 1000 100" preserveAspectRatio="none">
+      <motion.path 
+        d="M0 50 L100 50 L120 20 L140 80 L160 50 L300 50 L320 10 L340 90 L360 50 L1000 50"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        animate={{ x: [-200, 0] }}
+        transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+      />
+    </svg>
+  </motion.div>
+);
+
+const FireBackground = () => (
+  <motion.div 
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    className="absolute inset-0 z-0 pointer-events-none overflow-hidden"
+  >
+    <motion.div 
+      animate={{ 
+        backgroundColor: ["rgba(255,59,48,0.05)", "rgba(255,149,0,0.08)", "rgba(255,59,48,0.05)"] 
+      }}
+      transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+      className="absolute inset-0"
+    />
+    {/* Floating Embers */}
+    {[...Array(20)].map((_, i) => (
+      <motion.div
+        key={i}
+        className="absolute w-1 h-1 bg-orange-500 rounded-full"
+        initial={{ bottom: -20, left: `${Math.random() * 100}%`, opacity: 0 }}
+        animate={{ 
+          bottom: "120%", 
+          opacity: [0, 1, 0],
+          x: [0, Math.random() * 50 - 25]
+        }}
+        transition={{ 
+          duration: 2 + Math.random() * 3, 
+          repeat: Infinity, 
+          delay: Math.random() * 2 
+        }}
+      />
+    ))}
+  </motion.div>
+);
+
+// --- Sub-components ---
 
 const PulseWave = () => (
   <div className="relative flex h-5 w-5 md:h-6 md:w-6 items-center justify-center">
@@ -273,93 +313,64 @@ const PulseWave = () => (
       animate={{ scale: [0.8, 1.8], opacity: [0.8, 0] }}
       transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
     />
-    <motion.div
-      className="absolute h-full w-full rounded-full border border-white/[0.15]"
-      animate={{ scale: [0.8, 1.8], opacity: [0.8, 0] }}
-      transition={{ duration: 2, repeat: Infinity, delay: 1, ease: "easeOut" }}
-    />
     <div className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full bg-white/60" />
   </div>
 );
 
-function ServiceButton({ 
-  type, 
-  label, 
-  Icon, 
-  isActive, 
-  status, 
-  onClick 
-}: { 
-  type: ServiceType; 
-  label: string; 
-  Icon: any; 
-  isActive: boolean; 
-  status: Status; 
-  onClick: () => void; 
+function ServiceButton({ type, label, Icon, isActive, status, themeColor, onClick }: { 
+  type: ServiceType; label: string; Icon: any; isActive: boolean; status: Status; themeColor: string; onClick: () => void; 
 }) {
   const isProcessing = status === "fetching" || status === "sending";
   const disabled = isProcessing && !isActive;
 
-  const getStyles = () => {
-    if (disabled) {
-      return {
-        background: "rgba(18, 18, 18, 0.4)",
-        borderColor: "rgba(255, 255, 255, 0.02)",
-        color: "rgba(255, 255, 255, 0.2)",
-        boxShadow: "none"
-      };
-    }
-    
-    if (isActive) {
-      const colors = {
-        police: { from: 'rgba(255, 59, 48, 0.15)', to: 'rgba(255, 59, 48, 0.05)', border: 'rgba(255, 59, 48, 0.25)', glow: 'rgba(255, 59, 48, 0.1)' },
-        ambulance: { from: 'rgba(0, 122, 255, 0.15)', to: 'rgba(0, 122, 255, 0.05)', border: 'rgba(0, 122, 255, 0.25)', glow: 'rgba(0, 122, 255, 0.1)' },
-        fire: { from: 'rgba(255, 149, 0, 0.15)', to: 'rgba(255, 149, 0, 0.05)', border: 'rgba(255, 149, 0, 0.25)', glow: 'rgba(255, 149, 0, 0.1)' }
-      }[type!];
-      
-      return {
-        background: `linear-gradient(180deg, ${colors.from} 0%, ${colors.to} 100%)`,
-        borderColor: colors.border,
-        color: "#EAEAEA",
-        boxShadow: `0 8px 32px ${colors.glow}, inset 0 1px 0 rgba(255,255,255,0.04)`,
-      };
-    }
-
-    return {
-      background: `linear-gradient(180deg, rgba(22, 22, 22, 0.8) 0%, rgba(14, 14, 14, 0.8) 100%)`,
-      borderColor: `rgba(255, 255, 255, 0.04)`,
-      color: "#A1A1AA",
-      boxShadow: `0 4px 16px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.02)`,
-    };
-  };
-
   return (
     <motion.button
+      whileHover={!disabled ? { y: -8, scale: 1.02 } : {}}
       whileTap={!disabled ? { scale: 0.96 } : {}}
-      transition={{ type: "spring", stiffness: 400, damping: 25 }}
       onClick={onClick}
       disabled={disabled}
-      style={getStyles()}
       className={clsx(
-        "relative flex w-full flex-1 items-center md:flex-col md:justify-center px-6 py-6 md:py-16 overflow-hidden rounded-[24px] md:rounded-[32px] border transition-all duration-500",
-        !isActive && !disabled && "hover:bg-white/[0.03] hover:border-white/[0.06] hover:text-[#EAEAEA]"
+        "relative flex flex-col items-center justify-center gap-6 md:gap-8 rounded-[40px] md:rounded-[56px] border transition-all duration-500",
+        "h-[220px] w-full md:h-[380px] md:w-[280px] overflow-hidden group",
+        isActive 
+          ? "bg-white/[0.08] border-white/[0.2] shadow-[0_32px_80px_rgba(0,0,0,0.5)]" 
+          : "bg-white/[0.01] border-white/[0.03] hover:bg-white/[0.03] hover:border-white/[0.08] opacity-70 hover:opacity-100",
+        disabled && "opacity-20 grayscale pointer-events-none"
       )}
     >
-      <div className="flex items-center md:flex-col md:justify-center gap-6 z-10 w-full">
-        <div className={clsx(
-          "flex h-12 w-12 md:h-20 md:w-20 items-center justify-center rounded-[18px] md:rounded-[24px] transition-colors duration-500",
-          isActive ? "bg-white/[0.05]" : "bg-white/[0.02]"
-        )}>
-          <Icon 
-            className="w-6 h-6 md:w-10 md:h-10" 
-            strokeWidth={1.5} 
-            style={!disabled && !isActive ? { 
-              color: type === 'police' ? '#FF3B30' : type === 'ambulance' ? '#007AFF' : '#FF9500' 
-            } : {}} 
-          />
-        </div>
-        <span className="text-[19px] md:text-[24px] font-medium tracking-[-0.01em]">{label}</span>
+      {/* Background fill on active */}
+      <motion.div 
+        className="absolute inset-0 z-0 opacity-10"
+        animate={{ backgroundColor: isActive ? themeColor : "transparent" }}
+      />
+
+      <div className={clsx(
+        "relative z-10 flex h-16 w-16 md:h-24 md:w-24 items-center justify-center rounded-full transition-all duration-500",
+        isActive ? "bg-white text-black scale-110 shadow-[0_0_30px_rgba(255,255,255,0.3)]" : "bg-white/[0.03] text-[#A1A1AA] group-hover:bg-white/[0.08] group-hover:text-white"
+      )}>
+        <Icon className="h-8 w-8 md:h-12 md:w-12" strokeWidth={1.2} />
       </div>
+      
+      <div className="relative z-10 flex flex-col items-center gap-2">
+        <span className={clsx(
+          "text-[20px] md:text-[28px] font-bold tracking-tight transition-colors duration-500",
+          isActive ? "text-white" : "text-[#888888] group-hover:text-[#EAEAEA]"
+        )}>
+          {label}
+        </span>
+        <motion.div 
+          className="h-1 rounded-full"
+          animate={{ width: isActive ? 32 : 0, backgroundColor: isActive ? "white" : "transparent" }}
+        />
+      </div>
+
+      {isActive && status === "sending" && (
+        <motion.div 
+          className="absolute inset-0 z-0 bg-white/[0.05]"
+          animate={{ opacity: [0, 0.2, 0] }}
+          transition={{ duration: 1, repeat: Infinity }}
+        />
+      )}
     </motion.button>
   );
 }

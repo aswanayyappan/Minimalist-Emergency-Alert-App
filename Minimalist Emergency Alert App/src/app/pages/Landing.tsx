@@ -1,9 +1,20 @@
+import { useEffect } from "react";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
-import { Radio } from "lucide-react";
+import { Radio, ShieldAlert, MapPin, Activity } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 export function Landing() {
   const navigate = useNavigate();
+  const { isAuthenticated, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      navigate("/dashboard");
+    }
+  }, [isAuthenticated, loading, navigate]);
+
+  if (loading || isAuthenticated) return null;
 
   return (
     <div className="flex min-h-[100dvh] w-full flex-col items-center justify-center px-8 py-12 md:py-24 relative overflow-hidden">
@@ -68,7 +79,44 @@ export function Landing() {
             Get Started
           </motion.button>
         </motion.div>
+
+        {/* New Features Section */}
+        <motion.div 
+          className="mt-32 w-full grid grid-cols-1 md:grid-cols-3 gap-8 text-left"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 1, delay: 0.2 }}
+        >
+          <FeatureCard 
+            icon={<ShieldAlert className="w-6 h-6 text-[#EAEAEA]" />}
+            title="Instant Response"
+            description="One-tap connection to police, ambulance, or fire services."
+          />
+          <FeatureCard 
+            icon={<MapPin className="w-6 h-6 text-[#EAEAEA]" />}
+            title="GPS Precision"
+            description="Your exact location is sent instantly to emergency dispatchers."
+          />
+          <FeatureCard 
+            icon={<Activity className="w-6 h-6 text-[#EAEAEA]" />}
+            title="Real-time Status"
+            description="Track your request status from dispatch to arrival."
+          />
+        </motion.div>
       </div>
+    </div>
+  );
+}
+
+function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+  return (
+    <div className="p-8 rounded-[32px] bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] transition-all duration-500">
+      <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.05] border border-white/[0.05]">
+        {icon}
+      </div>
+      <h3 className="mb-3 text-[19px] font-semibold text-[#EAEAEA] tracking-tight">{title}</h3>
+      <p className="text-[15px] leading-relaxed text-[#888888] font-normal">{description}</p>
     </div>
   );
 }
