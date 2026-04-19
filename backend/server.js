@@ -13,6 +13,9 @@ const googleClient = new OAuth2Client(
   process.env.GOOGLE_CLIENT_SECRET
 );
 
+// Trust proxy is required for Render/Heroku to set secure cookies
+app.set('trust proxy', 1);
+
 // 1. Middleware
 app.use(cors({
   origin: process.env.FRONTEND_URL || "http://localhost:5173",
@@ -28,9 +31,11 @@ app.use(session({
   saveUninitialized: false,
   cookie: { 
     secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     maxAge: 1000 * 60 * 60 * 24 // 24 hours
   }
 }));
+
 
 // 3. Auth Routes (Pure Google OAuth)
 app.get('/auth/google', (req, res) => {
