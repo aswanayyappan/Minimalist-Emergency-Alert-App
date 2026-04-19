@@ -1,7 +1,8 @@
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Chrome } from "lucide-react";
 import { useState } from "react";
+import { signInWithGoogle } from "../firebase";
 
 export function SignUp() {
   const navigate = useNavigate();
@@ -12,6 +13,17 @@ export function SignUp() {
     e.preventDefault();
     if (name && phone) {
       navigate("/dashboard");
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      const result = await signInWithGoogle();
+      if (result.user) {
+        navigate("/dashboard");
+      }
+    } catch (error) {
+      console.error("Google login failed:", error);
     }
   };
 
@@ -85,6 +97,21 @@ export function SignUp() {
               <ArrowRight className="h-5 w-5 md:h-6 md:w-6" strokeWidth={2} />
             </motion.button>
           </form>
+
+          <div className="my-10 flex items-center gap-4">
+            <div className="h-px flex-1 bg-white/[0.05]" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#444]">Or</span>
+            <div className="h-px flex-1 bg-white/[0.05]" />
+          </div>
+
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={handleGoogleLogin}
+            className="flex w-full items-center justify-center gap-3 rounded-2xl md:rounded-[20px] bg-white/[0.02] border border-white/[0.05] px-6 py-5 md:py-6 text-[17px] md:text-[19px] font-semibold text-[#EAEAEA] transition-all duration-300 hover:bg-white/[0.04] hover:border-white/[0.1] active:bg-white/[0.06]"
+          >
+            <Chrome className="h-5 w-5 md:h-6 md:w-6" />
+            Continue with Google
+          </motion.button>
 
           <p className="mt-8 md:mt-10 text-center text-[11px] md:text-[12px] font-medium uppercase tracking-[0.2em] text-[#555555]">
             Used only for sending alerts

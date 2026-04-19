@@ -1,7 +1,10 @@
 import { motion, AnimatePresence } from "motion/react";
 import { useState, useEffect } from "react";
-import { ShieldAlert, Ambulance, Flame, CheckCircle2, AlertTriangle, MapPin, Activity } from "lucide-react";
+import { ShieldAlert, Ambulance, Flame, CheckCircle2, AlertTriangle, MapPin, Activity, LogOut, User as UserIcon } from "lucide-react";
 import { clsx } from "clsx";
+import { auth, logout } from "../firebase";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { useNavigate } from "react-router";
 
 type Status = "ready" | "fetching" | "sending" | "sent" | "error";
 type ServiceType = "police" | "ambulance" | "fire" | null;
@@ -10,6 +13,20 @@ export function Dashboard() {
   const [status, setStatus] = useState<Status>("ready");
   const [activeService, setActiveService] = useState<ServiceType>(null);
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
+  };
 
   useEffect(() => {
     const checkStatus = async () => {
@@ -122,7 +139,29 @@ export function Dashboard() {
 
       <div className="relative z-10 flex flex-col h-full w-full max-w-6xl mx-auto">
         {/* Header */}
-        <header className="mb-12 md:mb-24 flex flex-col items-center justify-center text-center">
+        <header className="mb-12 md:mb-24 flex flex-col items-center justify-center text-center relative">
+          {/* User Profile / Logout */}
+          <div className="absolute -top-12 md:-top-16 right-0 flex items-center gap-4">
+            {user && (
+              <div className="flex items-center gap-3 bg-white/[0.02] border border-white/[0.05] pl-1.5 pr-4 py-1.5 rounded-full backdrop-blur-md">
+                {user.photoURL ? (
+                  <img src={user.photoURL} alt="Profile" className="w-8 h-8 rounded-full border border-white/[0.1]" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-white/[0.05] flex items-center justify-center">
+                    <UserIcon className="w-4 h-4 text-[#888]" />
+                  </div>
+                )}
+                <span className="text-xs font-semibold text-[#EAEAEA] hidden md:inline">{user.displayName || "User"}</span>
+                <button 
+                  onClick={handleLogout}
+                  className="ml-2 text-[#888] hover:text-[#FF3B30] transition-colors"
+                  title="Logout"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
           <motion.h1 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
