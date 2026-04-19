@@ -28,7 +28,8 @@ export function Dashboard() {
         setStatus("sending");
 
         try {
-          const response = await fetch("http://localhost:3000/alert", {
+          const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/alert";
+          const response = await fetch(API_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
