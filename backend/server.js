@@ -34,16 +34,18 @@ app.use(session({
 
 // 3. Auth Routes (Pure Google OAuth)
 app.get('/auth/google', (req, res) => {
-  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.GOOGLE_CALLBACK_URL)}&response_type=code&scope=profile%20email`;
+  const callbackUrl = process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/auth/google/callback';
+  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code&scope=profile%20email`;
   res.redirect(url);
 });
 
 app.get('/auth/google/callback', async (req, res) => {
   const { code } = req.query;
+  const callbackUrl = process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/auth/google/callback';
   try {
     const { tokens } = await googleClient.getToken({
       code,
-      redirect_uri: process.env.GOOGLE_CALLBACK_URL
+      redirect_uri: callbackUrl
     });
 
     const ticket = await googleClient.verifyIdToken({
